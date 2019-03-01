@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import math
 
 
 def sRGB_to_XYZ(r, g, b):
@@ -71,14 +72,14 @@ def Luv_to_XYZ(l, u, v):
     if l > 7.9996:
         Y = ((l + 16) / 116) ** 3 * Y_W
     else:
-        Y = l / 903.3 * Y_W
+        Y = (l / 903.3) * Y_W
 
     if v_prime == 0:
         X = 0
         Z = 0
     else:
         X = Y * 2.25 * (u_prime / v_prime)
-        Z = Y * (3 - 0.75 * u_prime - 5 * v_prime) / v_prime
+        Z = (Y * (3 - 0.75 * u_prime - 5 * v_prime)) / v_prime
 
     return X, Y, Z
 
@@ -86,19 +87,24 @@ def Luv_to_XYZ(l, u, v):
 def XYZ_to_sRGB(x, y, z):
 
     RGB_matrix = np.array(
-        [[3.240479, -1.53715, -0.498535], [-0.969256, 1.875991, 0.041556], [0.055648, -2.04043, 1.057311]])
+        [[3.240479, -1.53715, -0.498535], [-0.969256, 1.875991, 0.041556], [0.055648, -0.204043, 1.057311]])
     r, g, b = RGB_matrix.dot(np.array([[x], [y], [z]]))
-
     def gamma_correction(d):
         if d < 0.00304:
             I = 12.92 * d
         else:
             I = 1.055 * (d ** (1 / 2.4)) - 0.055
+
+        if I > 1:
+            I =1
+        if I < 0:
+            I = 0
         return I
 
-    R = gamma_correction(r) * 255
-    G = gamma_correction(g) * 255
-    B = gamma_correction(b) * 255
+    R = gamma_correction(r)*255
+    G = gamma_correction(g)*255
+    B = gamma_correction(b)*255
+
 
     return R, G, B
 
@@ -124,6 +130,20 @@ def xyY_to_XYZ(x, y, Y):
         Z = ((1-x-y)/y)*Y
 
     return X, Y, Z
+
+
+def histogram_equalization(array):
+    hist, bins = np.histogram(array.astype(int).flatten())
+    cdf = hist.cumsum()
+    h2 = []
+    for i in range(len(cdf)):
+        if i == 0:
+            h2.append(math.floor((cdf[i] / 2) * (101 / cdf.max())))
+        else:
+            h2.append(math.floor(((cdf[i] + cdf[i - 1]) / 2) * (101 / cdf.max())))
+    L2 = np.interp(array.astype(int).flatten(), bins[:-1], h2)
+
+    return L2
 
 
 array = np.array([[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
@@ -155,9 +175,21 @@ for i in range(row):
         X, Y, Z = Luv_to_XYZ(L, u, v)
         R, G, B = XYZ_to_sRGB(X, Y, Z)
 
+
 # program 2
 
-
+test =np.array([[1,2,3,3,3],[1,1,1,1,2],[0,3,3,2,1],[0,3,3,2,1]])
+hist, bins = np.histogram(test.astype(int).flatten(), bins=len(set(test.flatten())))
+print(hist)
+cdf = hist.cumsum()
+h2 = []
+for i in range(len(cdf)):
+    if i == 0:
+        h2.append(math.floor((cdf[i] / 2) * (256 / cdf.max())))
+    else:
+        h2.append(math.floor(((cdf[i] + cdf[i - 1]) / 2) * (256 / cdf.max())))
+L2 = np.interp(test.astype(int).flatten(), bins[:-1], h2)
+print(L2)
 
 # program 3
 
